@@ -15,11 +15,15 @@ export async function POST(req: Request) {
   const existing = await db.select().from(members)
   const skipBase = existing.length > 0 && !force
 
-  // Always re-seed projects if they don't exist yet
+  // Skip projects if they already exist (unless force)
   const existingProjects = await db.select().from(projects)
   const skipProjects = existingProjects.length > 0 && !force
 
-  if (skipBase && skipProjects) {
+  // Skip assignments if they already exist (unless force)
+  const existingAssignments = await db.select().from(projectAssignments)
+  const skipAssignments = existingAssignments.length > 0 && !force
+
+  if (skipBase && skipProjects && skipAssignments) {
     return NextResponse.json({ message: 'Already seeded', count: existing.length })
   }
 
@@ -169,9 +173,11 @@ export async function POST(req: Request) {
   }
 
   // ── Project Assignments ────────────────────────────────────────────────────
-  // Fetch seeded members so we can reference by index
+  // Fetch first 20 members (the original seed batch) by order
   const seededMembers = await db.select().from(members)
-  const mId = (idx: number) => seededMembers[idx]?.id ?? ''
+  // Use the first 20 members to avoid duplicates from multiple seeds
+  const first20 = seededMembers.slice(0, 20)
+  const mId = (idx: number) => first20[idx]?.id ?? ''
 
   // Range-based assignments: { project, member index, startMonth, endMonth, role }
   type RangeRow = { project: string; member: number; start: string; end: string; role: 'dri' | 'support' }
@@ -209,16 +215,18 @@ export async function POST(req: Request) {
   ]
 
   let assignCount = 0
-  for (const row of assignData) {
-    const pid = projectIds[row.project]
-    const mid = mId(row.member)
-    if (!pid || !mid) continue
-    await db.insert(projectAssignments).values({
-      id: nanoid(), projectId: pid, memberId: mid,
-      startMonth: row.start, endMonth: row.end,
-      role: row.role, createdAt: now,
-    })
-    assignCount++
+  if (!skipAssignments) {
+    for (const row of assignData) {
+      const pid = projectIds[row.project]
+      const mid = mId(row.member)
+      if (!pid || !mid) continue
+      await db.insert(projectAssignments).values({
+        id: nanoid(), projectId: pid, memberId: mid,
+        startMonth: row.start, endMonth: row.end,
+        role: row.role, createdAt: now,
+      })
+      assignCount++
+    }
   }
 
   return NextResponse.json({
