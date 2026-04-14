@@ -67,13 +67,13 @@ export async function initDB() {
     );
 
     CREATE TABLE IF NOT EXISTS project_assignments (
-      id         TEXT PRIMARY KEY,
-      project_id TEXT NOT NULL REFERENCES projects(id),
-      member_id  TEXT NOT NULL REFERENCES members(id),
-      month      TEXT NOT NULL,
-      role       TEXT NOT NULL DEFAULT 'support',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(project_id, member_id, month)
+      id          TEXT PRIMARY KEY,
+      project_id  TEXT NOT NULL REFERENCES projects(id),
+      member_id   TEXT NOT NULL REFERENCES members(id),
+      start_month TEXT NOT NULL,
+      end_month   TEXT NOT NULL,
+      role        TEXT NOT NULL DEFAULT 'support',
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `)
 }

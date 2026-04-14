@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { X } from 'lucide-react'
+import { AssignmentDrawer } from './AssignmentDrawer'
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 const MONTH_KEYS = ['01','02','03','04','05','06','07','08','09','10','11','12']
@@ -24,7 +24,8 @@ interface Assignment {
   id: string
   projectId: string
   memberId: string
-  month: string
+  startMonth: string
+  endMonth: string
   role: 'dri' | 'support'
   projectName?: string | null
   projectColor?: string | null
@@ -32,94 +33,6 @@ interface Assignment {
 }
 
 type ViewMode = 'by-project' | 'by-person'
-
-// ── Cell popup for adding/removing assignments ─────────────────────────────
-interface CellPopupProps {
-  year: number
-  monthIdx: number
-  rowId: string        // projectId (by-project) or memberId (by-person)
-  viewMode: ViewMode
-  projects: Project[]
-  members: Member[]
-  existing: Assignment[]
-  onClose: () => void
-  onRefresh: () => void
-}
-
-function CellPopup({ year, monthIdx, rowId, viewMode, projects, members, existing, onClose, onRefresh }: CellPopupProps) {
-  const month = `${year}-${MONTH_KEYS[monthIdx]}`
-
-  async function toggle(otherId: string, currentRole: 'dri' | 'support' | null) {
-    const projectId = viewMode === 'by-project' ? rowId : otherId
-    const memberId  = viewMode === 'by-project' ? otherId : rowId
-
-    if (currentRole === null) {
-      // Add as support
-      await fetch('/api/project-assignments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, memberId, month, role: 'support' }),
-      })
-    } else if (currentRole === 'support') {
-      // Promote to DRI
-      await fetch('/api/project-assignments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, memberId, month, role: 'dri' }),
-      })
-    } else {
-      // Remove
-      await fetch(`/api/project-assignments?project_id=${projectId}&member_id=${memberId}&month=${month}`, {
-        method: 'DELETE',
-      })
-    }
-    onRefresh()
-  }
-
-  const items = viewMode === 'by-project' ? members : projects
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl border p-4 w-72 max-h-96 overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-gray-700">
-            {MONTHS[monthIdx]} {year}
-          </span>
-          <button onClick={onClose}><X className="w-4 h-4 text-gray-400" /></button>
-        </div>
-        <p className="text-xs text-gray-400 mb-3">Click to cycle: none → Support → DRI → remove</p>
-        <div className="space-y-1.5">
-          {items.map(item => {
-            const asgn = existing.find(a =>
-              viewMode === 'by-project'
-                ? a.memberId === item.id
-                : a.projectId === item.id
-            )
-            const role = asgn?.role ?? null
-            const color = viewMode === 'by-project'
-              ? '#6b7280'
-              : (item as Project).colorHex
-            return (
-              <button
-                key={item.id}
-                onClick={() => toggle(item.id, role)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs transition-colors hover:bg-gray-50"
-                style={role ? { borderColor: color, backgroundColor: color + '22' } : {}}
-              >
-                <span className="font-medium text-gray-700">{item.name}</span>
-                <span
-                  className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
-                  style={role ? { backgroundColor: color, color: '#fff' } : { color: '#9ca3af' }}
-                >
-                  {role === 'dri' ? '★ DRI' : role === 'support' ? 'Support' : '—'}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Chip component ─────────────────────────────────────────────────────────
 function Chip({ label, color, role }: { label: string; color: string; role: 'dri' | 'support' }) {
@@ -150,7 +63,15 @@ export function ProjectMatrix() {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [viewMode,    setViewMode]    = useState<ViewMode>('by-project')
   const [year,        setYear]        = useState(2026)
-  const [popup,       setPopup]       = useState<{ rowId: string; monthIdx: number } | null>(null)
+
+  // Drawer state
+  const [drawer, setDrawer] = useState<{
+    open: boolean
+    mode: 'project' | 'member'
+    targetId: string
+    targetName: string
+    targetColor?: string
+  }>({ open: false, mode: 'project', targetId: '', targetName: '' })
 
   const loadAssignments = useCallback(() => {
     fetch(`/api/project-assignments?year=${year}`).then(r => r.json()).then(setAssignments)
@@ -163,14 +84,29 @@ export function ProjectMatrix() {
 
   useEffect(() => { loadAssignments() }, [loadAssignments])
 
-  // Build lookup: "projectId_memberId_YYYY-MM" → Assignment
-  const aMap: Record<string, Assignment> = {}
-  for (const a of assignments) {
-    aMap[`${a.projectId}_${a.memberId}_${a.month}`] = a
+  function openDrawer(row: Project | Member) {
+    if (viewMode === 'by-project') {
+      const p = row as Project
+      setDrawer({ open: true, mode: 'project', targetId: p.id, targetName: p.name, targetColor: p.colorHex })
+    } else {
+      const m = row as Member
+      setDrawer({ open: true, mode: 'member', targetId: m.id, targetName: m.name })
+    }
   }
 
   const rows    = viewMode === 'by-project' ? projects : members
   const colKeys = MONTH_KEYS.map(m => `${year}-${m}`)
+
+  // Count unique active months for a set of range assignments
+  function countActiveMonths(rowAssignments: Assignment[]): number {
+    const active = new Set<string>()
+    for (const a of rowAssignments) {
+      for (const mk of colKeys) {
+        if (mk >= a.startMonth && mk <= a.endMonth) active.add(mk)
+      }
+    }
+    return active.size
+  }
 
   return (
     <div className="space-y-4">
@@ -216,7 +152,7 @@ export function ProjectMatrix() {
           <span className="px-1.5 py-0.5 rounded text-[10px] border border-blue-400 text-blue-700">Support</span>
           Supporting member
         </span>
-        <span className="text-gray-400">· Click any cell to assign / change roles</span>
+        <span className="text-gray-400">· Click row header to edit assignments</span>
       </div>
 
       {/* Matrix */}
@@ -227,12 +163,12 @@ export function ProjectMatrix() {
               <th className="sticky left-0 z-20 bg-gray-50 border-b border-r px-3 py-2 text-left font-medium text-gray-600 w-44">
                 {viewMode === 'by-project' ? 'Project' : 'Member'}
               </th>
-              {MONTHS.map((m, i) => (
+              {MONTHS.map(m => (
                 <th key={m} className="border-b border-r px-2 py-2 text-center font-medium text-gray-500 min-w-20">
                   {m}
                 </th>
               ))}
-              <th className="border-b px-2 py-2 text-center font-medium text-gray-500 w-12">Total</th>
+              <th className="border-b px-2 py-2 text-center font-medium text-gray-500 w-12">Months</th>
             </tr>
           </thead>
           <tbody>
@@ -240,12 +176,16 @@ export function ProjectMatrix() {
               const rowAssignments = assignments.filter(a =>
                 viewMode === 'by-project' ? a.projectId === row.id : a.memberId === row.id
               )
-              const totalMonths = new Set(rowAssignments.map(a => a.month)).size
+              const totalMonths = countActiveMonths(rowAssignments)
 
               return (
                 <tr key={row.id} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                  {/* Row label */}
-                  <td className="sticky left-0 z-10 border-r border-b px-3 py-2 bg-inherit w-44">
+                  {/* Row label — click to open drawer */}
+                  <td
+                    className="sticky left-0 z-10 border-r border-b px-3 py-2 bg-inherit w-44 cursor-pointer hover:bg-blue-50 transition-colors group"
+                    onClick={() => openDrawer(row)}
+                    title="Click to edit assignments"
+                  >
                     <div className="flex items-center gap-2">
                       {viewMode === 'by-project' && (
                         <span
@@ -253,8 +193,10 @@ export function ProjectMatrix() {
                           style={{ backgroundColor: (row as Project).colorHex }}
                         />
                       )}
-                      <div>
-                        <div className="font-medium text-gray-800 truncate max-w-36">{row.name}</div>
+                      <div className="min-w-0">
+                        <div className="font-medium text-gray-800 truncate max-w-36 group-hover:text-blue-700 transition-colors">
+                          {row.name}
+                        </div>
                         {viewMode === 'by-person' && (row as Member).scope && (
                           <div className="text-[10px] text-gray-400 truncate">{(row as Member).scope}</div>
                         )}
@@ -262,30 +204,29 @@ export function ProjectMatrix() {
                     </div>
                   </td>
 
-                  {/* Month cells */}
-                  {colKeys.map((monthKey, mIdx) => {
-                    const cellAssignments = viewMode === 'by-project'
-                      ? assignments.filter(a => a.projectId === row.id && a.month === monthKey)
-                      : assignments.filter(a => a.memberId  === row.id && a.month === monthKey)
+                  {/* Month cells — read-only display */}
+                  {colKeys.map(monthKey => {
+                    const cellAssignments = rowAssignments.filter(a =>
+                      monthKey >= a.startMonth && monthKey <= a.endMonth
+                    )
 
                     return (
                       <td
                         key={monthKey}
-                        className="border-r border-b px-1 py-1 min-w-20 h-12 cursor-pointer hover:bg-blue-50/50 transition-colors align-top"
-                        onClick={() => setPopup({ rowId: row.id, monthIdx: mIdx })}
+                        className="border-r border-b px-1 py-1 min-w-20 h-12 align-top"
                       >
                         <div className="flex flex-wrap gap-0.5">
                           {cellAssignments
                             .sort((a, b) => (a.role === 'dri' ? -1 : 1))
                             .map(a => {
                               const label = viewMode === 'by-project'
-                                ? (a.memberName ?? '?').split(' ').pop() ?? '?'  // last name / short
-                                : (a.projectName ?? '?').split(' ')[0]           // first word of project
+                                ? (a.memberName ?? '?').split(' ').pop() ?? '?'
+                                : (a.projectName ?? '?').split(' ')[0]
                               const color = viewMode === 'by-project'
                                 ? '#6b7280'
                                 : (a.projectColor ?? '#93c5fd')
                               return (
-                                <Chip key={a.id} label={label} color={color} role={a.role as 'dri' | 'support'} />
+                                <Chip key={a.id} label={label} color={color} role={a.role} />
                               )
                             })
                           }
@@ -305,24 +246,19 @@ export function ProjectMatrix() {
         </table>
       </div>
 
-      {/* Cell popup */}
-      {popup && (
-        <CellPopup
-          year={year}
-          monthIdx={popup.monthIdx}
-          rowId={popup.rowId}
-          viewMode={viewMode}
-          projects={projects}
-          members={members}
-          existing={assignments.filter(a =>
-            viewMode === 'by-project'
-              ? a.projectId === popup.rowId && a.month === `${year}-${MONTH_KEYS[popup.monthIdx]}`
-              : a.memberId  === popup.rowId && a.month === `${year}-${MONTH_KEYS[popup.monthIdx]}`
-          )}
-          onClose={() => setPopup(null)}
-          onRefresh={() => { loadAssignments(); setPopup(null) }}
-        />
-      )}
+      {/* Assignment Drawer */}
+      <AssignmentDrawer
+        open={drawer.open}
+        onClose={() => setDrawer(d => ({ ...d, open: false }))}
+        onRefresh={() => { loadAssignments(); setDrawer(d => ({ ...d, open: false })) }}
+        mode={drawer.mode}
+        targetId={drawer.targetId}
+        targetName={drawer.targetName}
+        targetColor={drawer.targetColor}
+        year={year}
+        allProjects={projects}
+        allMembers={members}
+      />
     </div>
   )
 }

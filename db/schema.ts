@@ -51,14 +51,15 @@ export const projects = sqliteTable('projects', {
   createdAt:   text('created_at').notNull().default(''),
 })
 
-// ── Project Assignments ───────────────────────────────────────────────────────
+// ── Project Assignments (range-based) ────────────────────────────────────────
 export const projectAssignments = sqliteTable('project_assignments', {
-  id:        text('id').primaryKey(),
-  projectId: text('project_id').notNull().references(() => projects.id),
-  memberId:  text('member_id').notNull().references(() => members.id),
-  month:     text('month').notNull(), // YYYY-MM
-  role:      text('role').notNull().default('support'), // 'dri' | 'support'
-  createdAt: text('created_at').notNull().default(''),
+  id:         text('id').primaryKey(),
+  projectId:  text('project_id').notNull().references(() => projects.id),
+  memberId:   text('member_id').notNull().references(() => members.id),
+  startMonth: text('start_month').notNull(), // YYYY-MM
+  endMonth:   text('end_month').notNull(),   // YYYY-MM
+  role:       text('role').notNull().default('support'), // 'dri' | 'support'
+  createdAt:  text('created_at').notNull().default(''),
 })
 
 // ── Public Holidays ───────────────────────────────────────────────────────────

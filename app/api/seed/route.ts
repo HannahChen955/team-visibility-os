@@ -173,47 +173,39 @@ export async function POST(req: Request) {
   const seededMembers = await db.select().from(members)
   const mId = (idx: number) => seededMembers[idx]?.id ?? ''
 
-  // assignment helper: project name, member indices, months, role
-  type AssignRow = { project: string; member: number; months: string[]; role: 'dri' | 'support' }
-  const assignData: AssignRow[] = [
-    // Alpha Platform — A (DRI), B (support) Jan-Jun; E (support) Apr-Aug
-    { project: 'Alpha Platform',   member: 0,  months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'], role: 'dri'     },
-    { project: 'Alpha Platform',   member: 1,  months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'], role: 'support' },
-    { project: 'Alpha Platform',   member: 4,  months: ['2026-04','2026-05','2026-06','2026-07','2026-08'],           role: 'support' },
+  // Range-based assignments: { project, member index, startMonth, endMonth, role }
+  type RangeRow = { project: string; member: number; start: string; end: string; role: 'dri' | 'support' }
+  const assignData: RangeRow[] = [
+    { project: 'Alpha Platform',   member: 0,  start: '2026-01', end: '2026-06', role: 'dri'     },
+    { project: 'Alpha Platform',   member: 1,  start: '2026-01', end: '2026-06', role: 'support' },
+    { project: 'Alpha Platform',   member: 4,  start: '2026-04', end: '2026-08', role: 'support' },
 
-    // Beta Integration — C (DRI), D (support) Mar-Sep
-    { project: 'Beta Integration',  member: 2,  months: ['2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'], role: 'dri'     },
-    { project: 'Beta Integration',  member: 3,  months: ['2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'], role: 'support' },
-    { project: 'Beta Integration',  member: 6,  months: ['2026-05','2026-06','2026-07'],                                        role: 'support' },
+    { project: 'Beta Integration', member: 2,  start: '2026-03', end: '2026-09', role: 'dri'     },
+    { project: 'Beta Integration', member: 3,  start: '2026-03', end: '2026-09', role: 'support' },
+    { project: 'Beta Integration', member: 6,  start: '2026-05', end: '2026-07', role: 'support' },
 
-    // Customer Portal — F (DRI), G (DRI) Jan-Dec; H (support) Jan-Jun
-    { project: 'Customer Portal',   member: 5,  months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'dri'     },
-    { project: 'Customer Portal',   member: 6,  months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'dri'     },
-    { project: 'Customer Portal',   member: 7,  months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'],                                                             role: 'support' },
+    { project: 'Customer Portal',  member: 5,  start: '2026-01', end: '2026-12', role: 'dri'     },
+    { project: 'Customer Portal',  member: 6,  start: '2026-01', end: '2026-12', role: 'dri'     },
+    { project: 'Customer Portal',  member: 7,  start: '2026-01', end: '2026-06', role: 'support' },
 
-    // Data Pipeline — I (DRI), J (support) Feb-Aug
-    { project: 'Data Pipeline',     member: 8,  months: ['2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08'], role: 'dri'     },
-    { project: 'Data Pipeline',     member: 9,  months: ['2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08'], role: 'support' },
-    { project: 'Data Pipeline',     member: 12, months: ['2026-05','2026-06','2026-07','2026-08'],                               role: 'support' },
+    { project: 'Data Pipeline',    member: 8,  start: '2026-02', end: '2026-08', role: 'dri'     },
+    { project: 'Data Pipeline',    member: 9,  start: '2026-02', end: '2026-08', role: 'support' },
+    { project: 'Data Pipeline',    member: 12, start: '2026-05', end: '2026-08', role: 'support' },
 
-    // Engineering Ops — E (DRI) Jan-Dec; R (support) Jul-Dec
-    { project: 'Engineering Ops',   member: 4,  months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'dri'     },
-    { project: 'Engineering Ops',   member: 17, months: ['2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'],                                                             role: 'support' },
+    { project: 'Engineering Ops',  member: 4,  start: '2026-01', end: '2026-12', role: 'dri'     },
+    { project: 'Engineering Ops',  member: 17, start: '2026-07', end: '2026-12', role: 'support' },
 
-    // Field Deployment — K (DRI), L (DRI) Apr-Oct; M (support) Apr-Oct
-    { project: 'Field Deployment',  member: 10, months: ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10'], role: 'dri'     },
-    { project: 'Field Deployment',  member: 11, months: ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10'], role: 'dri'     },
-    { project: 'Field Deployment',  member: 12, months: ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10'], role: 'support' },
+    { project: 'Field Deployment', member: 10, start: '2026-04', end: '2026-10', role: 'dri'     },
+    { project: 'Field Deployment', member: 11, start: '2026-04', end: '2026-10', role: 'dri'     },
+    { project: 'Field Deployment', member: 12, start: '2026-04', end: '2026-10', role: 'support' },
 
-    // GTK Launch — N (DRI), O (support) Jun-Dec; P (support) Sep-Dec
-    { project: 'GTK Launch',        member: 13, months: ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'dri'     },
-    { project: 'GTK Launch',        member: 14, months: ['2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'support' },
-    { project: 'GTK Launch',        member: 15, months: ['2026-09','2026-10','2026-11','2026-12'],                               role: 'support' },
+    { project: 'GTK Launch',       member: 13, start: '2026-06', end: '2026-12', role: 'dri'     },
+    { project: 'GTK Launch',       member: 14, start: '2026-06', end: '2026-12', role: 'support' },
+    { project: 'GTK Launch',       member: 15, start: '2026-09', end: '2026-12', role: 'support' },
 
-    // HQ Modernisation — P (DRI), Q (DRI) Jan-Dec; T (support) Jan-Jun
-    { project: 'HQ Modernisation',  member: 15, months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'dri'     },
-    { project: 'HQ Modernisation',  member: 16, months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'], role: 'dri'     },
-    { project: 'HQ Modernisation',  member: 19, months: ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06'],                                                             role: 'support' },
+    { project: 'HQ Modernisation', member: 15, start: '2026-01', end: '2026-12', role: 'dri'     },
+    { project: 'HQ Modernisation', member: 16, start: '2026-01', end: '2026-12', role: 'dri'     },
+    { project: 'HQ Modernisation', member: 19, start: '2026-01', end: '2026-06', role: 'support' },
   ]
 
   let assignCount = 0
@@ -221,12 +213,12 @@ export async function POST(req: Request) {
     const pid = projectIds[row.project]
     const mid = mId(row.member)
     if (!pid || !mid) continue
-    for (const month of row.months) {
-      await db.insert(projectAssignments).values({
-        id: nanoid(), projectId: pid, memberId: mid, month, role: row.role, createdAt: now,
-      })
-      assignCount++
-    }
+    await db.insert(projectAssignments).values({
+      id: nanoid(), projectId: pid, memberId: mid,
+      startMonth: row.start, endMonth: row.end,
+      role: row.role, createdAt: now,
+    })
+    assignCount++
   }
 
   return NextResponse.json({
