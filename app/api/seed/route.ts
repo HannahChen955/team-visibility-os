@@ -4,18 +4,29 @@ import { members, tags, locations, publicHolidays, projects, projectAssignments 
 import { nanoid } from 'nanoid'
 import { CATEGORY_COLORS } from '@/data/seed'
 
-export async function POST() {
+export async function POST(req: Request) {
   // Create tables
   await initDB()
 
-  // Skip if already seeded
+  const { searchParams } = new URL(req.url)
+  const force = searchParams.get('force') === '1'
+
+  // Skip members/tags/locations/holidays if already seeded (unless force)
   const existing = await db.select().from(members)
-  if (existing.length > 0) {
+  const skipBase = existing.length > 0 && !force
+
+  // Always re-seed projects if they don't exist yet
+  const existingProjects = await db.select().from(projects)
+  const skipProjects = existingProjects.length > 0 && !force
+
+  if (skipBase && skipProjects) {
     return NextResponse.json({ message: 'Already seeded', count: existing.length })
   }
 
   const now = new Date().toISOString()
+  let memberCount = 0, tagCount = 0, locationCount = 0, holidayCount = 0
 
+  if (!skipBase) {
   // ── Members ────────────────────────────────────────────────────────────────
   const memberData = [
     { name: 'Member A', base: 'Shanghai',  scope: 'Supply Chain' },
@@ -128,6 +139,11 @@ export async function POST() {
       id: nanoid(), date: h.date, name: h.name, isWorkday: h.isWorkday, year, createdAt: now,
     })
   }
+  memberCount   = memberData.length
+  tagCount      = tagData.length
+  locationCount = locationData.length
+  holidayCount  = holidays2026.length
+  } // end !skipBase
 
   // ── Projects ──────────────────────────────────────────────────────────────
   const projectData = [
@@ -141,10 +157,15 @@ export async function POST() {
     { name: 'HQ Modernisation',  colorHex: '#e879f9', description: 'HQ workflow digitisation'       },
   ]
   const projectIds: Record<string, string> = {}
-  for (const p of projectData) {
-    const id = nanoid()
-    projectIds[p.name] = id
-    await db.insert(projects).values({ id, name: p.name, colorHex: p.colorHex, description: p.description, createdAt: now })
+  if (!skipProjects) {
+    for (const p of projectData) {
+      const id = nanoid()
+      projectIds[p.name] = id
+      await db.insert(projects).values({ id, name: p.name, colorHex: p.colorHex, description: p.description, createdAt: now })
+    }
+  } else {
+    // Map existing project names to ids
+    for (const p of existingProjects) { projectIds[p.name] = p.id }
   }
 
   // ── Project Assignments ────────────────────────────────────────────────────
@@ -210,11 +231,11 @@ export async function POST() {
 
   return NextResponse.json({
     message: 'Seed complete',
-    members: memberData.length,
-    tags: tagData.length,
-    locations: locationData.length,
-    holidays: holidays2026.length,
-    projects: projectData.length,
+    members: memberCount,
+    tags: tagCount,
+    locations: locationCount,
+    holidays: holidayCount,
+    projects: skipProjects ? 0 : projectData.length,
     assignments: assignCount,
   })
 }
