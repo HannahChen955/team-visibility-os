@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server'
-import { db, initDB } from '@/db'
+import { db } from '@/db'
 import { members } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 
-initDB()
-
 export async function GET() {
-  const rows = db.select().from(members).where(eq(members.isActive, true)).all()
+  const rows = await db.select().from(members).where(eq(members.isActive, true))
   return NextResponse.json(rows)
 }
 
@@ -19,6 +17,6 @@ export async function POST(req: Request) {
   }
   const id = nanoid()
   const now = new Date().toISOString()
-  db.insert(members).values({ id, name, baseLocation, scope: scope ?? null, isActive: true, createdAt: now }).run()
+  await db.insert(members).values({ id, name, baseLocation, scope: scope ?? null, isActive: true, createdAt: now })
   return NextResponse.json({ id, name, baseLocation, scope, isActive: true, createdAt: now }, { status: 201 })
 }

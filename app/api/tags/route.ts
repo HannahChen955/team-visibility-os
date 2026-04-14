@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server'
-import { db, initDB } from '@/db'
+import { db } from '@/db'
 import { tags } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { CATEGORY_COLORS } from '@/data/seed'
 
-initDB()
-
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category')
   const rows = category
-    ? db.select().from(tags).where(eq(tags.category, category)).all()
-    : db.select().from(tags).all()
+    ? await db.select().from(tags).where(eq(tags.category, category))
+    : await db.select().from(tags)
   return NextResponse.json(rows)
 }
 
@@ -25,6 +23,6 @@ export async function POST(req: Request) {
   const id = nanoid()
   const colorHex = CATEGORY_COLORS[category] ?? '#e5e7eb'
   const now = new Date().toISOString()
-  db.insert(tags).values({ id, name, category, colorHex, isDefault: false, createdAt: now }).run()
+  await db.insert(tags).values({ id, name, category, colorHex, isDefault: false, createdAt: now })
   return NextResponse.json({ id, name, category, colorHex, isDefault: false, createdAt: now }, { status: 201 })
 }

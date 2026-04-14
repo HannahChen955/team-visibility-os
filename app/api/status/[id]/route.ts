@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
-import { db, initDB } from '@/db'
+import { db } from '@/db'
 import { statusEntries } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-
-initDB()
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -15,12 +13,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.startDate  !== undefined) updates.startDate  = body.startDate
   if (body.endDate    !== undefined) updates.endDate    = body.endDate
   if (body.notes      !== undefined) updates.notes      = body.notes
-  db.update(statusEntries).set(updates).where(eq(statusEntries.id, id)).run()
+  await db.update(statusEntries).set(updates).where(eq(statusEntries.id, id))
   return NextResponse.json({ success: true })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  db.delete(statusEntries).where(eq(statusEntries.id, id)).run()
+  await db.delete(statusEntries).where(eq(statusEntries.id, id))
   return NextResponse.json({ success: true })
 }

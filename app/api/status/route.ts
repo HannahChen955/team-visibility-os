@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server'
-import { db, initDB } from '@/db'
+import { db } from '@/db'
 import { statusEntries, tags, locations, members } from '@/db/schema'
-import { eq, and, lte, gte, or } from 'drizzle-orm'
+import { eq, and, lte, gte } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
-
-initDB()
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
-  const date = searchParams.get('date')
+  const date     = searchParams.get('date')
   const memberId = searchParams.get('member_id')
-  const from = searchParams.get('from')
-  const to = searchParams.get('to')
+  const from     = searchParams.get('from')
+  const to       = searchParams.get('to')
 
-  // Base query with joins
   const base = db
     .select({
       id:           statusEntries.id,
@@ -37,28 +34,19 @@ export async function GET(req: Request) {
     .leftJoin(members,   eq(statusEntries.memberId,   members.id))
 
   if (date) {
-    // All members active on this date
-    const rows = base
-      .where(and(lte(statusEntries.startDate, date), gte(statusEntries.endDate, date)))
-      .all()
+    const rows = await base.where(and(lte(statusEntries.startDate, date), gte(statusEntries.endDate, date)))
     return NextResponse.json(rows)
   }
-
   if (memberId) {
-    const rows = base.where(eq(statusEntries.memberId, memberId)).all()
+    const rows = await base.where(eq(statusEntries.memberId, memberId))
     return NextResponse.json(rows)
   }
-
   if (from && to) {
-    // Entries that overlap with [from, to]
-    const rows = base
-      .where(and(lte(statusEntries.startDate, to), gte(statusEntries.endDate, from)))
-      .all()
+    const rows = await base.where(and(lte(statusEntries.startDate, to), gte(statusEntries.endDate, from)))
     return NextResponse.json(rows)
   }
 
-  // Default: all entries
-  const rows = base.all()
+  const rows = await base
   return NextResponse.json(rows)
 }
 
@@ -70,12 +58,12 @@ export async function POST(req: Request) {
   }
   const id = nanoid()
   const now = new Date().toISOString()
-  db.insert(statusEntries).values({
+  await db.insert(statusEntries).values({
     id, memberId, tagId,
     locationId: locationId ?? null,
     startDate, endDate,
     notes: notes ?? null,
     createdAt: now, updatedAt: now,
-  }).run()
+  })
   return NextResponse.json({ id, memberId, tagId, locationId, startDate, endDate, notes, createdAt: now, updatedAt: now }, { status: 201 })
 }

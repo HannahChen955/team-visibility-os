@@ -1,28 +1,16 @@
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { createClient } from '@libsql/client'
+import { drizzle } from 'drizzle-orm/libsql'
 import * as schema from './schema'
-import path from 'path'
-import fs from 'fs'
 
-const DB_PATH = process.env.DATABASE_URL ?? path.join(process.cwd(), 'data', 'team-visibility.db')
+const client = createClient({
+  url:       process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+})
 
-// Ensure the data directory exists
-const dir = path.dirname(DB_PATH)
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true })
-}
+export const db = drizzle(client, { schema })
 
-const sqlite = new Database(DB_PATH)
-
-// Enable WAL mode for better concurrent read performance
-sqlite.pragma('journal_mode = WAL')
-sqlite.pragma('foreign_keys = ON')
-
-export const db = drizzle(sqlite, { schema })
-
-// Run schema creation (idempotent)
-export function initDB() {
-  sqlite.exec(`
+export async function initDB() {
+  await client.executeMultiple(`
     CREATE TABLE IF NOT EXISTS members (
       id            TEXT PRIMARY KEY,
       name          TEXT NOT NULL,
