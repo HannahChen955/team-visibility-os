@@ -57,5 +57,23 @@ export async function initDB() {
       year       INTEGER NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS projects (
+      id          TEXT PRIMARY KEY,
+      name        TEXT NOT NULL,
+      color_hex   TEXT NOT NULL DEFAULT '#93c5fd',
+      description TEXT,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS project_assignments (
+      id         TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id),
+      member_id  TEXT NOT NULL REFERENCES members(id),
+      month      TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'support',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, member_id, month)
+    );
   `)
 }

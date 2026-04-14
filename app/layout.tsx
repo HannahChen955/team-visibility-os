@@ -20,9 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="flex items-center gap-6">
               <span className="font-semibold text-gray-900">Team Visibility OS</span>
               <div className="flex gap-1">
-                <Link href="/"         className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Dashboard</Link>
-                <Link href="/timeline" className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Timeline</Link>
-                <Link href="/settings" className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Settings</Link>
+                <Link href="/"          className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Dashboard</Link>
+                <Link href="/timeline"  className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Timeline</Link>
+                <Link href="/projects"  className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Projects</Link>
+                <Link href="/settings"  className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors">Settings</Link>
               </div>
             </div>
             <span className="text-xs text-gray-400">MO Team · {new Date().getFullYear()}</span>

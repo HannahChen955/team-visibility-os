@@ -42,6 +42,25 @@ export const statusEntries = sqliteTable('status_entries', {
   updatedAt:  text('updated_at').notNull().default(''),
 })
 
+// ── Projects ──────────────────────────────────────────────────────────────────
+export const projects = sqliteTable('projects', {
+  id:          text('id').primaryKey(),
+  name:        text('name').notNull(),
+  colorHex:    text('color_hex').notNull().default('#93c5fd'),
+  description: text('description'),
+  createdAt:   text('created_at').notNull().default(''),
+})
+
+// ── Project Assignments ───────────────────────────────────────────────────────
+export const projectAssignments = sqliteTable('project_assignments', {
+  id:        text('id').primaryKey(),
+  projectId: text('project_id').notNull().references(() => projects.id),
+  memberId:  text('member_id').notNull().references(() => members.id),
+  month:     text('month').notNull(), // YYYY-MM
+  role:      text('role').notNull().default('support'), // 'dri' | 'support'
+  createdAt: text('created_at').notNull().default(''),
+})
+
 // ── Public Holidays ───────────────────────────────────────────────────────────
 export const publicHolidays = sqliteTable('public_holidays', {
   id:        text('id').primaryKey(),
