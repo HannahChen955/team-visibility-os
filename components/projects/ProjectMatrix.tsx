@@ -145,11 +145,11 @@ export function ProjectMatrix() {
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-xs text-gray-500">
         <span className="flex items-center gap-1.5">
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-400 text-white">★ DRI</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ backgroundColor: '#60a5fa', color: darken('#60a5fa') }}>★ DRI</span>
           Directly Responsible
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="px-1.5 py-0.5 rounded text-[10px] border border-blue-400 text-blue-700">Support</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] border" style={{ borderColor: '#60a5fa', color: darken('#60a5fa'), backgroundColor: '#60a5fa33' }}>Support</span>
           Supporting member
         </span>
         <span className="text-gray-400">· Click row header to edit assignments</span>
@@ -223,7 +223,7 @@ export function ProjectMatrix() {
                                 ? (a.memberName ?? '?').split(' ').pop() ?? '?'
                                 : (a.projectName ?? '?').split(' ')[0]
                               const color = viewMode === 'by-project'
-                                ? '#6b7280'
+                                ? ((row as Project).colorHex ?? '#6b7280')
                                 : (a.projectColor ?? '#93c5fd')
                               return (
                                 <Chip key={a.id} label={label} color={color} role={a.role} />
